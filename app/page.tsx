@@ -1,69 +1,159 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
 
-export default function Home() {
+import React, { useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import { Shield, Radio, Crosshair } from "lucide-react";
+import TelemetryPanel from "./components/TelemetryPanel";
+import ThreatTicker from "./components/ThreatTicker";
+import { useLidarStream, type CellTuple, type TelemetryMetrics } from "./hooks/useLidarStream";
+
+// Dynamically import DeckGL canvas (SSR incompatible)
+const DeckCanvas2D = dynamic(() => import("./components/DeckCanvas2D"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-[#030712]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-ping" />
+          <div className="absolute inset-2 rounded-full border-2 border-cyan-400/60 animate-spin" style={{ animationDuration: "1s" }} />
+          <Crosshair className="absolute inset-0 m-auto w-6 h-6 text-cyan-400" />
+        </div>
+        <p className="text-cyan-500/60 text-xs font-mono uppercase tracking-widest">
+          Loading Perception Engine…
+        </p>
+      </div>
+    </div>
+  ),
+});
+
+export default function KavachDashboard() {
+  const [cells, setCells] = useState<CellTuple[]>([]);
+  const [telemetry, setTelemetry] = useState<TelemetryMetrics | null>(null);
+  const [connected, setConnected] = useState(false);
+  const connectAttempts = useRef(0);
+
+  const handleCells = useCallback((incoming: CellTuple[]) => {
+    setCells(incoming);
+    if (!connected) setConnected(true);
+  }, [connected]);
+
+  const handleTelemetry = useCallback((metrics: TelemetryMetrics) => {
+    setTelemetry(metrics);
+  }, []);
+
+  useLidarStream({
+    onCells: handleCells,
+    onTelemetry: handleTelemetry,
+    reconnectDelayMs: 2000,
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="h-screen w-screen bg-[#030712] text-white flex flex-col overflow-hidden font-mono">
+      {/* ── Top Navigation Bar ─────────────────────────────────────────────── */}
+      <header className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-white/5 bg-[#050d1a]/80 backdrop-blur-md z-20">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Shield className="w-7 h-7 text-cyan-400" />
+            <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-full animate-pulse" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-[0.3em] uppercase text-white">
+              KAVACH <span className="text-cyan-400">2.5D</span>
+            </h1>
+            <p className="text-[9px] text-slate-500 tracking-widest uppercase">
+              Tactical Perception Dashboard · ETH-DiM
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+        {/* Status indicators */}
+        <div className="flex items-center gap-6">
+          {/* WS Connection */}
+          <div className="flex items-center gap-2 text-xs">
+            <Radio className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-slate-500">WS</span>
+            <span className={`flex h-2 w-2`}>
+              <span className={`animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75 ${connected ? "bg-green-400" : "bg-red-500"}`} />
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${connected ? "bg-green-400" : "bg-red-500"}`} />
+            </span>
+            <span className={`text-[10px] font-mono ${connected ? "text-green-400" : "text-red-400"}`}>
+              {connected ? "STREAMING" : "CONNECTING…"}
+            </span>
+          </div>
+
+          {/* FPS readout */}
+          <div className="text-xs text-slate-500">
+            <span className="text-cyan-300 font-bold">
+              {telemetry ? `${telemetry.fps.toFixed(0)} FPS` : "—"}
+            </span>
+          </div>
+
+          {/* Timestamp */}
+          <div className="text-[10px] text-slate-600 tabular-nums">
+            {new Date().toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Left: 3D Deck.gl Canvas (70%) ─────────────────────────────── */}
+        <div className="relative flex-[7] min-w-0 overflow-hidden border-r border-white/5">
+          {/* Corner brackets */}
+          {["top-2 left-2", "top-2 right-2", "bottom-2 left-2", "bottom-2 right-2"].map((pos, i) => (
+            <div
+              key={i}
+              className={`absolute ${pos} w-5 h-5 border-cyan-500/40 pointer-events-none z-10`}
+              style={{
+                borderTopWidth: i < 2 ? 1 : 0,
+                borderBottomWidth: i >= 2 ? 1 : 0,
+                borderLeftWidth: i % 2 === 0 ? 1 : 0,
+                borderRightWidth: i % 2 === 1 ? 1 : 0,
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          ))}
+
+          {/* Canvas label */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+            <span className="text-[9px] font-mono uppercase tracking-[0.35em] text-slate-600 bg-[#030712]/80 px-3 py-1 rounded-full border border-white/5">
+              LiDAR · 2.5D Polar Grid · OrbitView
+            </span>
+          </div>
+
+          <DeckCanvas2D cells={cells} />
         </div>
-      </main>
+
+        {/* ── Right: Sidebar (30%) ───────────────────────────────────────── */}
+        <div className="flex-[3] min-w-0 flex flex-col gap-4 overflow-hidden p-4 bg-[#050d1a]/60">
+          {/* Telemetry Panel — top half */}
+          <div className="flex-[4] min-h-0 overflow-hidden">
+            <TelemetryPanel metrics={telemetry} />
+          </div>
+
+          {/* Divider */}
+          <div className="flex-shrink-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+          {/* Threat Ticker — bottom half */}
+          <div className="flex-[5] min-h-0 overflow-hidden">
+            <ThreatTicker cells={cells} maxEvents={50} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <footer className="flex-shrink-0 flex items-center justify-between px-6 py-1.5 border-t border-white/5 bg-[#050d1a]/80">
+        <span className="text-[9px] text-slate-700 uppercase tracking-widest">
+          KAVACH PERCEPTION v1.0 · ETH-DiM · 2.5D LiDAR Threat Intelligence
+        </span>
+        <span className="text-[9px] text-slate-700 uppercase tracking-widest">
+          ws://localhost:8000/ws/stream_map
+        </span>
+      </footer>
     </div>
   );
 }
