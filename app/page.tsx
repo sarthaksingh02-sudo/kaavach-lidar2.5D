@@ -127,8 +127,8 @@ export default function KavachDashboard() {
           {telemetry && (
             <div
               className={`text-[9px] font-mono font-bold tracking-widest px-2 py-0.5 rounded border ${telemetry.engine === "CUDA GPU TIER 1"
-                  ? "text-cyan-400 border-cyan-500/30 bg-cyan-500/10"
-                  : "text-amber-400 border-amber-500/30 bg-amber-500/10"
+                ? "text-cyan-400 border-cyan-500/30 bg-cyan-500/10"
+                : "text-amber-400 border-amber-500/30 bg-amber-500/10"
                 }`}
             >
               {telemetry.engine === "CUDA GPU TIER 1" ? "GPU" : "CPU"}
@@ -136,7 +136,7 @@ export default function KavachDashboard() {
           )}
 
           {/* Timestamp */}
-          <div className="text-[10px] text-slate-600 tabular-nums">
+          <div className="text-[10px] text-slate-600 tabular-nums" suppressHydrationWarning>
             {new Date().toLocaleTimeString("en-GB", {
               hour: "2-digit",
               minute: "2-digit",

@@ -65,33 +65,42 @@ function detectFromCells(cells: CellTuple[]): ThreatEvent[] {
     const events: ThreatEvent[] = [];
     const ts = buildTimestamp();
 
-    // Sample at most 500 cells to keep this O(n) but bounded at 30 FPS
-    const sample = cells.length > 500 ? cells.filter((_, i) => i % Math.ceil(cells.length / 500) === 0) : cells;
+    const sample = cells.length > 500
+        ? cells.filter((_, i) => i % Math.ceil(cells.length / 500) === 0)
+        : cells;
 
-    for (const [x, y, , deltaZ, label, radius] of sample) {
+    for (const cell of sample) {
+        // New format: { polygon, elev, delta_z, label, cx, cy }
+        // Old format: [x, y, zMax, deltaZ, label, radius]
+        let x: number, y: number, deltaZ: number, label: string, dist: number;
+
+        if (Array.isArray(cell)) {
+            [x, y, , deltaZ, label] = cell as [number, number, number, number, string, number];
+            dist = Math.sqrt(x * x + y * y);
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const c = cell as any;
+            x = c.cx ?? 0; y = c.cy ?? 0;
+            deltaZ = c.delta_z ?? 0;
+            label = c.label ?? "unknown";
+            dist = Math.sqrt(x * x + y * y);
+        }
+
         if (deltaZ > 0.5) {
             events.push({
-                id: makeId(),
-                timestamp: ts,
-                type: "DROP_OFF",
+                id: makeId(), timestamp: ts, type: "DROP_OFF",
                 label: String(label),
                 severity: deltaZ > 1.2 ? "CRITICAL" : "HIGH",
                 detail: `ΔZ=+${deltaZ.toFixed(2)}m @ (${x.toFixed(1)},${y.toFixed(1)})`,
                 source: "client",
             });
         }
-        if (
-            radius < 5 &&
-            (String(label).toLowerCase().includes("dynamic") ||
-                String(label).toLowerCase().includes("target"))
-        ) {
+        if (dist < 5 && String(label).toLowerCase().includes("dynamic")) {
             events.push({
-                id: makeId(),
-                timestamp: ts,
-                type: "CLOSE_RANGE",
+                id: makeId(), timestamp: ts, type: "CLOSE_RANGE",
                 label: String(label),
-                severity: radius < 2 ? "CRITICAL" : "HIGH",
-                detail: `r=${radius.toFixed(1)}m @ (${x.toFixed(1)},${y.toFixed(1)})`,
+                severity: dist < 2 ? "CRITICAL" : "HIGH",
+                detail: `r=${dist.toFixed(1)}m @ (${x.toFixed(1)},${y.toFixed(1)})`,
                 source: "client",
             });
         }

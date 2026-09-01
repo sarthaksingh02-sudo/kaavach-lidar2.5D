@@ -4,8 +4,9 @@
 import { useEffect, useRef, useCallback } from "react";
 
 // ─── Interface 3 payload schema from Saksham's backend ──────────────────────
-// grid_data row: [x, y, zMax, deltaZ, label_id (0-3), radius]
-export type CellTuple = [number, number, number, number, string, number];
+// grid_data can be tuples [x,y,zMax,deltaZ,label,radius] OR wedge dicts {polygon,elev,...}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type CellTuple = [number, number, number, number, string, number] | any;
 
 export interface TelemetryMetrics {
     engine: "CUDA GPU TIER 1" | "CPU OPENMP FALLBACK";
@@ -74,16 +75,23 @@ function adaptPayload(raw: BackendPayload): {
     let cells: CellTuple[] = [];
 
     if (raw.grid_data && raw.grid_data.length > 0) {
-        cells = raw.grid_data.map(([x, y, zMax, deltaZ, label, radius]) => [
-            x,
-            y,
-            zMax,
-            deltaZ,
-            resolveLabel(label as number | string),
-            radius,
-        ]);
+        const first = raw.grid_data[0];
+        // New bridge format: wedge dict with polygon key — pass through directly
+        if (first && typeof first === "object" && !Array.isArray(first) && "polygon" in first) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            cells = raw.grid_data as any[];
+        } else {
+            // Legacy tuple format
+            cells = raw.grid_data.map(([x, y, zMax, deltaZ, label, radius]) => [
+                x,
+                y,
+                zMax,
+                deltaZ,
+                resolveLabel(label as number | string),
+                radius,
+            ]);
+        }
     } else if (raw.cells && raw.cells.length > 0) {
-        // Legacy mock_server.py schema
         cells = raw.cells;
     }
 
