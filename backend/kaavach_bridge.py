@@ -239,7 +239,7 @@ async def inference_loop(model, voxelizer, scans):
 
 async def main():
     print("=" * 60)
-    print(f"  Kavach × Cylinder3D  —  {FPS} FPS simple loop")
+    print(f"  Kavach x Cylinder3D  -  {FPS} FPS simple loop")
     print(f"  ws://{HOST}:{PORT}{ROUTE}")
     print("=" * 60)
 

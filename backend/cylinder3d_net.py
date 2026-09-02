@@ -442,7 +442,7 @@ def build_model(checkpoint_path: str, device: torch.device) -> nn.Module:
         else:
             converted[k] = v
     if n_converted:
-        print(f"[Cylinder3D] Converted {n_converted} spconv v1→v2 weight tensors")
+        print(f"[Cylinder3D] Converted {n_converted} spconv v1->v2 weight tensors")
     state_dict = converted
 
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
